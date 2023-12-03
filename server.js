@@ -22,6 +22,12 @@ const User = mongoose.model('User', {
 // one-way encryption
 const user = new User({name: "Bob", password: bcrypt.hashSync("foobar")})
 user.save()
+  .then((doc) => {
+    console.log("User saved successfully:", doc);
+  })
+  .catch((err) => {
+    console.error("Error saving user:", err);
+  })
 
 // Defines the port the app will run on. Defaults to 8080, but can be overridden
 // when starting the server. Example command to overwrite PORT env variable value:
