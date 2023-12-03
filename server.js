@@ -4,6 +4,10 @@ import crypto from 'crypto'
 import mongoose from 'mongoose'
 import bcrypt from 'bcrypt-nodejs'
 
+const mongoUrl = process.env.MONGO_URL || "mongodb://localhost/auth"
+mongoose.connect(mongoUrl, { useNewUrlParser: true, useUnifiedTopology: true })
+mongoose.Promise = Promise
+
 const User = mongoose.model('User', {
   name:{
     type: String,
@@ -18,6 +22,7 @@ const User = mongoose.model('User', {
     default: () => crypto.randomBytes(128).toString('hex')
   }
 })
+
 
 // one-way encryption
 const user = new User({name: "Bob", password: bcrypt.hashSync("foobar")})
@@ -35,6 +40,16 @@ user.save()
 const port = process.env.PORT || 8080;
 const app = express();
 
+const authenticateUser = async ( req, res, next ) => {
+  const user = await User.findOne({accessToken: req.header('Authorization')})
+  if(user){
+    req.user = user;
+    next()
+  } else {
+    res.status(401).json({loggedOut: true})
+  }
+}
+
 // Add middlewares to enable cors and json body parsing
 app.use(cors());
 app.use(express.json());
@@ -43,6 +58,25 @@ app.use(express.json());
 app.get("/", (req, res) => {
   res.send("Hello Technigo!");
 });
+
+app.post('/tweets', authenticateUser)
+app.post('/tweets', async (req, res) => {
+  // This will only happen if the next() function is called from the middleware!
+  // now we can access the req.user object from the middleware
+})
+
+app.post('/sessions', async (req, res) => {
+  const user = await User.findOne({name: req.body.name})
+  if(user && bcrypt.compareSync(req.body.password, user.password)){
+    // Success
+    res.json({userId: user._id, accessToken: user.accessToken})
+  } else {
+    // Failure
+    // a. User does not exist
+    // b. Encrypted password does not match
+    res.json({notFound: true})
+  }
+})
 
 // Start the server
 app.listen(port, () => {
